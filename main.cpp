@@ -12,14 +12,6 @@ using namespace std;
 #include <comutil.h>  
 #pragma comment(lib, "comsuppw.lib")
 
-string wtos(const wstring& ws)
-{
-	_bstr_t t = ws.c_str();
-	char* pchar = (char*)t;
-	string result = pchar;
-	return result;
-}
-
 wstring stow(const string& s)
 {
 	_bstr_t t = s.c_str();
@@ -29,7 +21,13 @@ wstring stow(const string& s)
 }
 
 
-string GetWebSrcCode(LPCTSTR Url, bool bSymbol = true)
+/**
+ * @brief		获取网页源码
+ * @param[in]	Url 网页链接
+ * @return		返回网页源码
+ * @note		代码来自 https://www.cnblogs.com/croot/p/3391003.html （有删改）
+*/
+string GetWebSrcCode(LPCTSTR Url)
 {
 	string strHTML;
 	HINTERNET hSession = InternetOpen(L"IE6.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
@@ -46,8 +44,7 @@ string GetWebSrcCode(LPCTSTR Url, bool bSymbol = true)
 			{
 				InternetReadFile(hURL, Temp, nBlockSize - 1, &Number);
 				for (int i = 0; i < (int)Number; i++)
-					if (bSymbol || Temp[i] > 0)
-						strHTML += Temp[i];
+					strHTML += Temp[i];
 			}
 
 			InternetCloseHandle(hURL);
@@ -57,6 +54,7 @@ string GetWebSrcCode(LPCTSTR Url, bool bSymbol = true)
 		InternetCloseHandle(hSession);
 		hSession = NULL;
 	}
+
 	return strHTML;
 }
 
@@ -132,7 +130,7 @@ short GetWindowsAdmin(LPCTSTR Param = L"", int Showcmd = SW_SHOWDEFAULT)
 */
 bool GetIPInfo(string _strUrl, string _strBeginSymbol, char _strEndSymbol, string* _strIp)
 {
-	string str = GetWebSrcCode(stow(_strUrl).c_str(), false);
+	string str = GetWebSrcCode(stow(_strUrl).c_str());
 
 	// 获取 ip 地址
 	int indexIp = str.find(_strBeginSymbol);
@@ -191,14 +189,15 @@ int main()
 		int t = clock();
 
 		// 查询 ip 列表
-		const int nQueryNum = 4;
+		const int nQueryNum = 5;
 
 		// Github 相关域名
 		string strDomain[nQueryNum] = {
 			"github.com",
 			"github.global.ssl.fastly.net",
 			"codeload.github.com",
-			"assets-cdn.github.com"
+			"assets-cdn.github.com",
+			"api.github.com"
 		};
 
 		// 各个域名对应的 ip 查询地址
@@ -206,7 +205,8 @@ int main()
 			"https://github.com.ipaddress.com/",
 			"https://fastly.net.ipaddress.com/github.global.ssl.fastly.net",
 			"https://github.com.ipaddress.com/codeload.github.com",
-			"https://github.com.ipaddress.com/assets-cdn.github.com"
+			"https://github.com.ipaddress.com/assets-cdn.github.com",
+			"https://github.com.ipaddress.com/api.github.com"
 		};
 
 		// ip 信息首次出现在页面中时的 HTML 关键字
@@ -214,12 +214,13 @@ int main()
 			"<ul class=\"comma-separated\"><li>",
 			"<ul class=\"comma-separated\"><li>",
 			"<ul class=\"comma-separated\"><li>",
-			"<a href=\"https://www.ipaddress.com/ipv4/"
+			"<a href=\"https://www.ipaddress.com/ipv4/",
+			"<ul class=\"comma-separated\"><li>"
 		};
-		
+
 		// ip 信息结束的 HTML 关键字
-		char strIpEndSymbol[nQueryNum] = { '<','<','<','\"' };
-		
+		char strIpEndSymbol[nQueryNum] = { '<','<','<','\"','<' };
+
 		// 存储查询到的 ip
 		string strIp[nQueryNum];
 
@@ -288,14 +289,14 @@ int main()
 		}
 
 		// 写入新记录
-		fputs("\n\n", fp);
+		fputs("\n", fp);
 		fputs((strRecordBegin + "\n").c_str(), fp);
 		for (int i = 0; i < nQueryNum; i++)
 		{
 			fprintf_s(fp, "%s %s\n", strIp[i].c_str(), strDomain[i].c_str());
 		}
 		fputs(strRecordEnd.c_str(), fp);
-		fputs("\n\n", fp);
+		fputs("\n", fp);
 
 		fclose(fp);
 		fp = NULL;
