@@ -1,11 +1,64 @@
 #include <stdio.h>
-#include <Windows.h>
 #include <string>
 #include <time.h>
 #include <io.h> 
-#include <conio.h> 
-#include "httputil.h"
+#include <conio.h>
+#include <windows.h>
+#include <wininet.h>
+#pragma comment(lib, "wininet.lib")
 using namespace std;
+
+// wstring和string转换函数需要用的头
+#include <comutil.h>  
+#pragma comment(lib, "comsuppw.lib")
+
+string wtos(const wstring& ws)
+{
+	_bstr_t t = ws.c_str();
+	char* pchar = (char*)t;
+	string result = pchar;
+	return result;
+}
+
+wstring stow(const string& s)
+{
+	_bstr_t t = s.c_str();
+	wchar_t* pwchar = (wchar_t*)t;
+	wstring result = pwchar;
+	return result;
+}
+
+
+string GetWebSrcCode(LPCTSTR Url, bool bSymbol = true)
+{
+	string strHTML;
+	HINTERNET hSession = InternetOpen(L"IE6.0", INTERNET_OPEN_TYPE_PRECONFIG, NULL, NULL, 0);
+	if (hSession != NULL)
+	{
+		HINTERNET hURL = InternetOpenUrl(hSession, Url, NULL, 0, INTERNET_FLAG_DONT_CACHE, 0);
+		if (hURL != NULL)
+		{
+			const int nBlockSize = 1024;
+			char Temp[nBlockSize] = { 0 };
+			ULONG Number = 1;
+
+			while (Number > 0)
+			{
+				InternetReadFile(hURL, Temp, nBlockSize - 1, &Number);
+				for (int i = 0; i < (int)Number; i++)
+					if (bSymbol || Temp[i] > 0)
+						strHTML += Temp[i];
+			}
+
+			InternetCloseHandle(hURL);
+			hURL = NULL;
+		}
+
+		InternetCloseHandle(hSession);
+		hSession = NULL;
+	}
+	return strHTML;
+}
 
 BOOL IsRunAsAdministrator()
 {
@@ -70,48 +123,38 @@ short GetWindowsAdmin(LPCTSTR Param = L"", int Showcmd = SW_SHOWDEFAULT)
 }
 
 /**
- * @brief		根据域名获取 ip 地址
- * @param[in]	_strDomain: 原域名
+ * @brief		根据域名查询网站的信息获取 ip 地址
+ * @param[in]	_strUrl: 查询某域名的网址，注意不能填要查的域名
+ * @param[in]	_strBeginSymbol: ip 信息首次出现时的 HTML 关键字
+ * @param[in]	_strEndSymbol: ip 信息结束时的 HTML 关键字
  * @param[out]	_strIP: 传出获取到的 ip 地址字符串
  * @return		返回是否成功获取 ip
 */
-bool GetIPFromDomain(string _strDomain, string* _strIp)
+bool GetIPInfo(string _strUrl, string _strBeginSymbol, char _strEndSymbol, string* _strIp)
 {
-	// 当前 ip 查询 api 官网：https://ip-api.com/
-	char* resData = sendRequest(("http://ip-api.com/xml/" + _strDomain).c_str());
-	string str = resData;
-	delete[] resData;
-
-	// xml 解析
-
-	// 获取状态
-	string strLabel = "<status>";
-	int indexStatus = str.find(strLabel);
-	if (indexStatus < 0) return false;
-	string strStatus;
-	for (int i = indexStatus + strLabel.size(); str[i] != '<'; i++)
-		strStatus += str[i];
-	if (strStatus != "success")	// 获取失败
-		return false;
+	string str = GetWebSrcCode(stow(_strUrl).c_str(), false);
 
 	// 获取 ip 地址
-	strLabel = "<query>";
-	int indexIp = str.find(strLabel, indexStatus);
+	int indexIp = str.find(_strBeginSymbol);
 	if (indexIp < 0) return false;
 	string strIp;
-	for (int i = indexIp + strLabel.size(); str[i] != '<'; i++)
+	for (int i = indexIp + _strBeginSymbol.size(); str[i] != _strEndSymbol; i++)
 		strIp += str[i];
 	*_strIp = strIp;
 
 	return true;
 }
 
+
 /**
  * @brief 显示获取 ip 错误，然后退出程序
 */
 void ShowGetIpError()
 {
-	printf("\n获取 ip 失败，请检查网络然后重试。如果还遇到此问题，有可能是域名解析 api 已经过时或者程序已经过时，"
+	printf("\n\n"
+		"\n-------- 错误信息 --------\n"
+		"\n获取 ip 失败。\n"
+		"\n请检查网络然后重试。如果还遇到此问题，有可能是域名解析 api 已经过时或者程序已经过时，"
 		"\n您可以选择访问 huidong.xyz 寻找新版或联系 huidong_mail@163.com 尝试解决此问题。\n"
 		"\n按任意键即可退出程序");
 	_getwch();
@@ -121,12 +164,12 @@ void ShowGetIpError()
 int main()
 {
 	printf("\n");
-	printf(	"  ________________________________                                         \n"
-			" /   ____                         \\                                       \n"
-			" |  /       .     |         |     |      Wanna Github ~~  【Github 登陆器】 \n"
-			" |  |  ___  | |_  |__  |  | |__   |      version 0.1(alpha)   2021-8-8     \n"
-			" |  |____|  | |__ |  | |__| |__|  |      huidong<huidong_mail@163.com>     \n"
-			" \\________________________________/      web: huidong.xyz                  \n");
+	printf("  ________________________________                                         \n"
+		" /   ____                         \\                                       \n"
+		" |  /       .     |         |     |      Wanna Github ~~  【Github 登陆器】 \n"
+		" |  |  ___  | |_  |__  |  | |__   |      version 1.0   2021-8-9            \n"
+		" |  |____|  | |__ |  | |__| |__|  |      huidong<huidong_mail@163.com>     \n"
+		" \\________________________________/      web: huidong.xyz                  \n");
 	printf("\n\n");
 	printf("------------ 注意事项 -----------\n\n");
 	printf("第一次使用此工具时请将 hosts 文件中的和 github 有关的内容删除，否则可能无法更新 dns\n");
@@ -147,18 +190,48 @@ int main()
 		// 记录域名 ip 查询所花时间
 		int t = clock();
 
-		// 解析域名列表
-		const int nDomainNum = 3;
-		string strDomain[nDomainNum] = { "github.com" ,"github.global.ssl.fastly.net" ,"codeload.Github.com" };
-		string strIp[nDomainNum];
+		// 查询 ip 列表
+		const int nQueryNum = 4;
 
-		for (int i = 0; i < nDomainNum; i++)
-			if (!GetIPFromDomain(strDomain[i], &strIp[i]))
+		// Github 相关域名
+		string strDomain[nQueryNum] = {
+			"github.com",
+			"github.global.ssl.fastly.net",
+			"codeload.github.com",
+			"assets-cdn.github.com"
+		};
+
+		// 各个域名对应的 ip 查询地址
+		string strQuery[nQueryNum] = {
+			"https://github.com.ipaddress.com/",
+			"https://fastly.net.ipaddress.com/github.global.ssl.fastly.net",
+			"https://github.com.ipaddress.com/codeload.github.com",
+			"https://github.com.ipaddress.com/assets-cdn.github.com"
+		};
+
+		// ip 信息首次出现在页面中时的 HTML 关键字
+		string strIpBeginSymbol[nQueryNum] = {
+			"<ul class=\"comma-separated\"><li>",
+			"<ul class=\"comma-separated\"><li>",
+			"<ul class=\"comma-separated\"><li>",
+			"<a href=\"https://www.ipaddress.com/ipv4/"
+		};
+		
+		// ip 信息结束的 HTML 关键字
+		char strIpEndSymbol[nQueryNum] = { '<','<','<','\"' };
+		
+		// 存储查询到的 ip
+		string strIp[nQueryNum];
+
+		for (int i = 0; i < nQueryNum; i++)
+			if (!GetIPInfo(strQuery[i], strIpBeginSymbol[i], strIpEndSymbol[i], &strIp[i]))
 				ShowGetIpError();
+			else
+				printf("*");
 
-		printf("查询域名 ip 完成，耗时 %.2f 秒		\r", (double)(clock() - t) / CLOCKS_PER_SEC);
+		printf("\n查询域名 ip 完成，耗时 %.2f 秒		\n", (double)(clock() - t) / CLOCKS_PER_SEC);
 
-		Sleep(300);
+		Sleep(500);
 		printf("开始写入 hosts 文件					\r");
 
 		FILE* fp = NULL;
@@ -215,12 +288,14 @@ int main()
 		}
 
 		// 写入新记录
+		fputs("\n\n", fp);
 		fputs((strRecordBegin + "\n").c_str(), fp);
-		for (int i = 0; i < nDomainNum; i++)
+		for (int i = 0; i < nQueryNum; i++)
 		{
 			fprintf_s(fp, "%s %s\n", strIp[i].c_str(), strDomain[i].c_str());
 		}
 		fputs(strRecordEnd.c_str(), fp);
+		fputs("\n\n", fp);
 
 		fclose(fp);
 		fp = NULL;
@@ -231,11 +306,15 @@ int main()
 		system("ipconfig /flushdns");
 
 		printf("\n\n");
-		printf(">>>>>>>>>>>> 按 [Enter] 一键进入 Github，开始冲刺 <<<<<<<<<<<<\n");
+		printf("\n注：若失败，则稍后片刻，多试几次。\n");
+		printf("\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+		printf("\n>>>>>>>>>>>> 按 [Enter] 一键进入 Github !!! <<<<<<<<<<<<");
+		printf("\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+		printf("\n\n");
 
 		while (true)
 		{
-			char x= _getch();
+			char x = _getch();
 			if (x == '\r' || x == '\n')
 			{
 				system("start http://github.com");
